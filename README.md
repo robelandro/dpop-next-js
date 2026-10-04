@@ -20,7 +20,9 @@ In standard OAuth 2.0 ([RFC 6750](https://datatracker.ietf.org/doc/html/rfc6750)
 
 ## 🚀 Key Features
 
-- **Genuine Cryptography (Zero Mocks):** Real ECDSA P-256 key generation via Web Crypto API and RFC-compliant proof verification powered by `jose`.
+- **Non-Extractable Private Keys (`extractable: false`):** The client's ECDSA P-256 private key is generated with `extractable: false` using the native Web Cryptography API. Even if an attacker injects malicious JavaScript or exploits XSS, `crypto.subtle.exportKey` is blocked by the browser.
+- **IndexedDB Keystore:** Stores the native `CryptoKey` object directly in browser IndexedDB via HTML5 Structured Clone. No raw private key bytes ever touch `localStorage` or strings.
+- **Interactive `exportKey()` Resistance Test:** Buttons on both the Login and Dashboard pages allow you to trigger `crypto.subtle.exportKey('jwk', privateKey)` to observe the browser actively throwing `DOMException: key is not extractable`.
 - **DPoP Login API (`POST /api/auth/login`):**
   - Requires a client-signed DPoP proof header.
   - Verifies signature, `htm` (HTTP method), `htu` (HTTP URI), freshness `iat`, and replay protection `jti`.
@@ -31,6 +33,11 @@ In standard OAuth 2.0 ([RFC 6750](https://datatracker.ietf.org/doc/html/rfc6750)
   - Verifies that the request includes a valid `DPoP` proof header.
   - Cryptographically verifies that the public key in the DPoP proof matches the token's `cnf.jkt` binding.
   - Rejects missing proofs, signature errors, expired timestamps, replayed `jti`s, and key mismatches.
+- **Next.js Server Actions with DPoP (`src/app/actions/dashboard.ts`):**
+  - Next.js `'use server'` action `executeSecureEnclaveAction` protected by end-to-end RFC 9449 DPoP verification.
+  - Validates client DPoP proofs within Next.js Server Action RPC execution context.
+- **Dual Invocation Channels:**
+  - Toggle seamlessly on the dashboard between **REST API Route Handlers** (`fetch('/api/dashboard')`) and **Next.js Server Actions** (`executeSecureEnclaveAction()`).
 - **Interactive Dashboard with Dual Action Buttons:**
   - **Button 1 (Authorized Request):** Calls the dashboard with a genuine DPoP proof signed by the client's private key. Returns `200 OK` with confidential data and audit log.
   - **Button 2 (Stolen Token Attack Simulator):** Simulates an adversary attempting to exploit the victim's stolen access token under 3 attack vectors:
@@ -48,13 +55,16 @@ In standard OAuth 2.0 ([RFC 6750](https://datatracker.ietf.org/doc/html/rfc6750)
 ```text
 ├── src/
 │   ├── app/
+│   │   ├── actions/
+│   │   │   ├── dashboard.ts           # DPoP-protected Next.js Server Action ('use server')
+│   │   │   └── index.ts               # Re-exports all Server Actions
 │   │   ├── api/
 │   │   │   ├── auth/
 │   │   │   │   ├── login/route.ts     # Validates DPoP proof & issues cnf.jkt token
 │   │   │   │   ├── logout/route.ts    # Clears HTTP-only cookie
 │   │   │   │   └── me/route.ts        # Session & token binding inspector
-│   │   │   └── dashboard/route.ts     # Protected DPoP-only resource endpoint
-│   │   ├── dashboard/page.tsx         # Interactive dashboard with 2 test buttons
+│   │   │   └── dashboard/route.ts     # Protected DPoP-only REST endpoint
+│   │   ├── dashboard/page.tsx         # Interactive dashboard with REST & Server Action modes
 │   │   ├── login/page.tsx             # Login flow with Web Crypto key generator
 │   │   ├── globals.css                # Dark-mode glassmorphic design system
 │   │   ├── layout.tsx                 # Root layout with navbar & metadata
@@ -64,6 +74,7 @@ In standard OAuth 2.0 ([RFC 6750](https://datatracker.ietf.org/doc/html/rfc6750)
 │   └── lib/
 │       ├── types.ts                   # DPoP interfaces & audit models
 │       ├── client/
+│       │   ├── indexedDb.ts           # IndexedDB storage adapter for non-extractable CryptoKeys
 │       │   └── dpop.ts                # Client Web Crypto ES256 key management & proof creation
 │       └── server/
 │           ├── dpop.ts                # Server-side RFC 9449 validation engine

@@ -22,7 +22,9 @@ import {
   getClientKeyPair,
   createClientDPoPProof,
   generateAttackerKeyPair,
+  testExportPrivateKey,
 } from '@/lib/client/dpop';
+import { executeSecureEnclaveAction } from '@/app/actions';
 import type {
   ClientKeyPairExport,
   DashboardData,
@@ -39,6 +41,7 @@ export default function DashboardPage() {
   const [authChecked, setAuthChecked] = useState(false);
 
   // Request & Execution States
+  const [channel, setChannel] = useState<'api' | 'action'>('api');
   const [executing, setExecuting] = useState(false);
   const [lastAction, setLastAction] = useState<'legitimate' | 'attack' | null>(null);
   const [attackMode, setAttackMode] = useState<AttackMode>('attacker_key');
@@ -113,45 +116,105 @@ export default function DashboardPage() {
       const activeKeys = keyPair || (await getClientKeyPair());
       const currentToken = token || sessionStorage.getItem('dpop_demo_token') || '';
 
-      // Create valid DPoP proof with client's genuine private key
-      const proofUrl = `${window.location.origin}/api/dashboard`;
-      const proof = await createClientDPoPProof({
-        method: 'GET',
-        url: proofUrl,
-        accessToken: currentToken || undefined,
-        keyPair: activeKeys,
-      });
-
-      setLastDPoPProof(proof);
-      setLastDPoPDecoded(decodeJwtUnsafe(proof));
-
-      // Dispatch request
-      const headers: Record<string, string> = {
-        DPoP: proof,
-      };
-
-      if (currentToken) {
-        headers['Authorization'] = `DPoP ${currentToken}`;
-      }
-
-      const res = await fetch('/api/dashboard', {
-        method: 'GET',
-        headers,
-      });
-
-      const json = await res.json();
-
-      if (res.ok && json.success) {
-        setDashboardData(json.data);
-        setAuditLog(json.data.auditTrail || []);
-      } else {
-        setErrorResponse({
-          code: json.error || 'request_failed',
-          message: json.message || 'Verification failed unexpectedly.',
-          tokenJkt: json.tokenJkt,
-          proofJkt: json.proofJkt,
+      if (channel === 'action') {
+        // NEXT.JS SERVER ACTION EXECUTION
+        const proofUrl = `${window.location.origin}/dashboard`;
+        const proof = await createClientDPoPProof({
+          method: 'POST', // Server Actions use POST
+          url: proofUrl,
+          accessToken: currentToken || undefined,
+          keyPair: activeKeys,
         });
-        setAuditLog(json.auditTrail || []);
+
+        setLastDPoPProof(proof);
+        setLastDPoPDecoded(decodeJwtUnsafe(proof));
+
+        const actionResult = await executeSecureEnclaveAction({
+          dpopProof: proof,
+          accessTokenOverride: currentToken,
+          operation: 'Rotate Quantum Enclave Keys',
+        });
+
+        if (actionResult.success) {
+          setDashboardData({
+            systemStatus: 'SECURE_SERVER_ACTION_VERIFIED',
+            metrics: {
+              threatsPrevented: 143,
+              dpopTokensActive: 1,
+              replayAttacksBlocked: 40,
+              securityScore: 100,
+            },
+            confidentialData: {
+              vaultId: actionResult.data?.vaultId || 'VLT-ACTION-ALPHA',
+              masterEnclaveKey: actionResult.data?.masterEnclaveKey || 'ENCLAVE-ACTION::VERIFIED',
+              accessLevel: 'SERVER-ACTION::PROOF-OF-POSSESSION-VERIFIED',
+              auditLogId: actionResult.data?.auditLogId || 'ACTION-AUDIT',
+              timestamp: actionResult.timestamp || new Date().toISOString(),
+            },
+            user: {
+              id: user?.id || 'usr_42',
+              username: user?.username || 'alice',
+              name: user?.name || 'Alice Vance',
+              role: user?.role || 'Security Engineer',
+            },
+            tokenBinding: {
+              tokenJkt: actionResult.tokenJkt || '',
+              proofJkt: actionResult.proofJkt || '',
+              matched: true,
+              authMethod: 'Server Action (Next.js RPC)',
+            },
+            auditTrail: actionResult.auditTrail,
+          });
+          setAuditLog(actionResult.auditTrail);
+        } else {
+          setErrorResponse({
+            code: actionResult.code || 'action_failed',
+            message: actionResult.message || 'Server Action verification failed.',
+            tokenJkt: actionResult.tokenJkt,
+            proofJkt: actionResult.proofJkt,
+          });
+          setAuditLog(actionResult.auditTrail);
+        }
+      } else {
+        // REST API ROUTE HANDLER (/api/dashboard)
+        const proofUrl = `${window.location.origin}/api/dashboard`;
+        const proof = await createClientDPoPProof({
+          method: 'GET',
+          url: proofUrl,
+          accessToken: currentToken || undefined,
+          keyPair: activeKeys,
+        });
+
+        setLastDPoPProof(proof);
+        setLastDPoPDecoded(decodeJwtUnsafe(proof));
+
+        const headers: Record<string, string> = {
+          DPoP: proof,
+        };
+
+        if (currentToken) {
+          headers['Authorization'] = `DPoP ${currentToken}`;
+        }
+
+        const res = await fetch('/api/dashboard', {
+          method: 'GET',
+          headers,
+        });
+
+        const json = await res.json();
+
+        if (res.ok && json.success) {
+          setDashboardData(json.data);
+          setAuditLog(json.data.auditTrail || []);
+        } else {
+          setErrorResponse({
+            code: json.error || 'request_failed',
+            message: json.message || 'Verification failed unexpectedly.',
+            tokenJkt: json.tokenJkt,
+            proofJkt: json.proofJkt,
+          });
+          setAuditLog(json.auditTrail || []);
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Network error during request';
@@ -174,69 +237,94 @@ export default function DashboardPage() {
 
     try {
       const currentToken = token || sessionStorage.getItem('dpop_demo_token') || '';
-      const proofUrl = `${window.location.origin}/api/dashboard`;
-      const headers: Record<string, string> = {};
+      const targetEndpoint = channel === 'action' ? '/dashboard' : '/api/dashboard';
+      const proofUrl = `${window.location.origin}${targetEndpoint}`;
+      const method = channel === 'action' ? 'POST' : 'GET';
 
-      if (currentToken) {
-        headers['Authorization'] = `DPoP ${currentToken}`;
-      }
+      let attackerProof: string | undefined = undefined;
 
       if (attackMode === 'no_dpop') {
-        // Attack 1: Stolen token replayed with NO DPoP proof (Bearer style)
+        // Vector B: Stolen token without DPoP proof
+        attackerProof = undefined;
         setLastDPoPProof(null);
         setLastDPoPDecoded(null);
       } else if (attackMode === 'attacker_key') {
-        // Attack 2: Attacker generates their OWN key pair and signs a DPoP proof
-        // Since attacker has their own private key, their proof is cryptographically valid,
-        // BUT their public key thumbprint does NOT match token.cnf.jkt!
+        // Vector A: Attacker signs proof using attacker's own key pair
         const attackerKeys = await generateAttackerKeyPair();
-        const proof = await createClientDPoPProof({
-          method: 'GET',
+        attackerProof = await createClientDPoPProof({
+          method,
           url: proofUrl,
           accessToken: currentToken || undefined,
           keyPair: attackerKeys,
         });
-        headers['DPoP'] = proof;
-        setLastDPoPProof(proof);
-        setLastDPoPDecoded(decodeJwtUnsafe(proof));
+        setLastDPoPProof(attackerProof);
+        setLastDPoPDecoded(decodeJwtUnsafe(attackerProof));
       } else if (attackMode === 'replayed_jti') {
-        // Attack 3: Attacker replays an already used / expired jti or bad method
+        // Vector C: Stale / replayed proof
         const activeKeys = keyPair || (await getClientKeyPair());
-        const proof = await createClientDPoPProof({
-          method: 'GET',
+        attackerProof = await createClientDPoPProof({
+          method,
           url: proofUrl,
           accessToken: currentToken || undefined,
           keyPair: activeKeys,
           overridePayload: {
             jti: 'replayed-static-jti-victim-nonce-12345',
-            iat: Math.floor(Date.now() / 1000) - 300, // 5 minutes old (stale)
+            iat: Math.floor(Date.now() / 1000) - 300,
           },
         });
-        headers['DPoP'] = proof;
-        setLastDPoPProof(proof);
-        setLastDPoPDecoded(decodeJwtUnsafe(proof));
+        setLastDPoPProof(attackerProof);
+        setLastDPoPDecoded(decodeJwtUnsafe(attackerProof));
       }
 
-      const res = await fetch('/api/dashboard', {
-        method: 'GET',
-        headers,
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        // Expected failure!
-        setErrorResponse({
-          code: json.error || 'attack_thwarted',
-          message: json.message || 'Attack blocked by DPoP enforcement.',
-          tokenJkt: json.tokenJkt,
-          proofJkt: json.proofJkt,
+      if (channel === 'action') {
+        // EXECUTE SERVER ACTION ATTACK
+        const actionResult = await executeSecureEnclaveAction({
+          dpopProof: attackerProof,
+          accessTokenOverride: currentToken,
+          operation: 'Unauthorized Enclave Data Exfiltration',
         });
-        setAuditLog(json.auditTrail || []);
+
+        if (!actionResult.success) {
+          setErrorResponse({
+            code: actionResult.code || 'attack_thwarted',
+            message: actionResult.message || 'Server Action blocked exploit.',
+            tokenJkt: actionResult.tokenJkt,
+            proofJkt: actionResult.proofJkt,
+          });
+          setAuditLog(actionResult.auditTrail || []);
+        } else {
+          setDashboardData(null);
+          setAuditLog(actionResult.auditTrail || []);
+        }
       } else {
-        // Unexpected success
-        setDashboardData(json.data);
-        setAuditLog(json.data.auditTrail || []);
+        // EXECUTE REST API ATTACK
+        const headers: Record<string, string> = {};
+        if (currentToken) {
+          headers['Authorization'] = `DPoP ${currentToken}`;
+        }
+        if (attackerProof) {
+          headers['DPoP'] = attackerProof;
+        }
+
+        const res = await fetch('/api/dashboard', {
+          method: 'GET',
+          headers,
+        });
+
+        const json = await res.json();
+
+        if (!res.ok || !json.success) {
+          setErrorResponse({
+            code: json.error || 'attack_thwarted',
+            message: json.message || 'Attack blocked by DPoP enforcement.',
+            tokenJkt: json.tokenJkt,
+            proofJkt: json.proofJkt,
+          });
+          setAuditLog(json.auditTrail || []);
+        } else {
+          setDashboardData(json.data);
+          setAuditLog(json.data.auditTrail || []);
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Network error during simulated attack';
@@ -327,14 +415,31 @@ export default function DashboardPage() {
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               1. Browser Private Key (Possession)
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <Key size={16} color="var(--accent-cyan)" />
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--accent-cyan)', fontWeight: 600 }}>
                 {keyPair?.jkt ? `${keyPair.jkt.slice(0, 10)}...${keyPair.jkt.slice(-6)}` : 'No key generated'}
               </span>
+              <span className="badge badge-emerald" style={{ fontSize: '0.62rem', padding: '2px 6px' }}>
+                IndexedDB (Non-Extractable)
+              </span>
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              Algorithm: ES256 (P-256 Web Crypto)
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                ES256 (extractable: false)
+              </span>
+              <button
+                type="button"
+                onClick={async () => {
+                  const res = await testExportPrivateKey(keyPair?.privateKey);
+                  alert(res.message);
+                }}
+                className="btn btn-outline"
+                style={{ padding: '2px 6px', fontSize: '0.7rem' }}
+                title="Verify that browser blocks exportKey()"
+              >
+                Test exportKey()
+              </button>
             </div>
           </div>
 
@@ -382,17 +487,61 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* THE TWO CORE DEMONSTRATION BUTTONS                                        */}
-      {/* ========================================================================= */}
       <div style={{ marginBottom: '36px' }}>
-        <div style={{ marginBottom: '16px' }}>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>
-            Interactive DPoP Verification Testing
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-            Test legitimate sender-constrained API access versus simulated token theft attacks side-by-side.
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>
+              Interactive DPoP Verification Testing
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+              Test legitimate sender-constrained access versus simulated token theft attacks side-by-side.
+            </p>
+          </div>
+
+          {/* Invocation Channel Toggle: REST API vs Server Action */}
+          <div style={{
+            display: 'inline-flex',
+            padding: '4px',
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: 'rgba(8, 12, 20, 0.8)',
+            border: '1px solid var(--border-subtle)',
+            gap: '4px'
+          }}>
+            <button
+              type="button"
+              onClick={() => setChannel('api')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.825rem',
+                fontWeight: 600,
+                transition: 'all 0.2s ease',
+                backgroundColor: channel === 'api' ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
+                color: channel === 'api' ? 'var(--accent-cyan)' : 'var(--text-muted)',
+              }}
+            >
+              🌐 REST API Route (/api/dashboard)
+            </button>
+            <button
+              type="button"
+              onClick={() => setChannel('action')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.825rem',
+                fontWeight: 600,
+                transition: 'all 0.2s ease',
+                backgroundColor: channel === 'action' ? 'rgba(129, 140, 248, 0.25)' : 'transparent',
+                color: channel === 'action' ? '#a5b4fc' : 'var(--text-muted)',
+              }}
+            >
+              ⚡ Next.js Server Action (actions/dashboard.ts)
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -3,7 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck, Key, Lock, ArrowRight, RefreshCw, Eye, CheckCircle2, AlertCircle } from 'lucide-react';
-import { getClientKeyPair, generateNewClientKeyPair, createClientDPoPProof } from '@/lib/client/dpop';
+import {
+  getClientKeyPair,
+  generateNewClientKeyPair,
+  createClientDPoPProof,
+  testExportPrivateKey,
+} from '@/lib/client/dpop';
 import type { ClientKeyPairExport, VerificationAuditStep } from '@/lib/types';
 
 export default function LoginPage() {
@@ -228,13 +233,24 @@ export default function LoginPage() {
               </div>
 
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '16px' }}>
-                Generated using the browser&apos;s Web Cryptography API (<code className="code-inline">ECDSA P-256</code>). 
-                The private key stays strictly in client memory/storage and never leaves your browser.
+                Generated using the browser&apos;s Web Cryptography API (<code className="code-inline">ECDSA P-256</code>) with 
+                <strong style={{ color: 'var(--accent-emerald)' }}> extractable: false</strong>, stored in <strong style={{ color: 'var(--accent-cyan)' }}>IndexedDB</strong>. 
+                The private key cannot be exported or leaked by JavaScript or XSS.
               </p>
 
               {keyPair ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   
+                  {/* Storage & Extractability Badges */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <span className="badge badge-emerald" style={{ fontSize: '0.72rem' }}>
+                      Storage: {keyPair.storage}
+                    </span>
+                    <span className="badge badge-cyan" style={{ fontSize: '0.72rem' }}>
+                      Extractable: {String(keyPair.extractable)}
+                    </span>
+                  </div>
+
                   {/* Thumbprint */}
                   <div style={{
                     backgroundColor: 'rgba(8, 12, 20, 0.7)',
@@ -256,6 +272,35 @@ export default function LoginPage() {
                       {keyPair.jkt}
                     </div>
                   </div>
+
+                  {/* Test Key Non-Extractability Security Demo */}
+                  <div style={{
+                    padding: '12px',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: 'rgba(56, 189, 248, 0.05)',
+                    border: '1px dashed rgba(56, 189, 248, 0.3)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                        Verify Hardware/Browser Non-Extractability:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const res = await testExportPrivateKey(keyPair.privateKey);
+                          alert(res.message);
+                        }}
+                        className="btn btn-outline"
+                        style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                      >
+                        Test exportKey()
+                      </button>
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      Attempts <code className="code-inline">crypto.subtle.exportKey(&apos;jwk&apos;, privateKey)</code> to prove the browser blocks it.
+                    </div>
+                  </div>
+
 
                   {/* Public Key Preview Toggle */}
                   <div>

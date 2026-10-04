@@ -117,22 +117,27 @@ export default function Navbar() {
           <Key size={14} color="var(--accent-cyan)" />
           <span style={{ color: 'var(--text-secondary)' }}>Client JKT:</span>
           {keyPair ? (
-            <span
-              onClick={handleCopyJkt}
-              title="Click to copy client thumbprint"
-              style={{
-                fontFamily: 'var(--font-mono)',
-                color: 'var(--accent-cyan)',
-                cursor: 'pointer',
-                fontWeight: 600,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              {keyPair.jkt.slice(0, 8)}...{keyPair.jkt.slice(-6)}
-              {isCopied ? <CheckCircle2 size={12} color="var(--accent-emerald)" /> : null}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span
+                onClick={handleCopyJkt}
+                title="Click to copy client thumbprint"
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  color: 'var(--accent-cyan)',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                {keyPair.jkt.slice(0, 8)}...{keyPair.jkt.slice(-6)}
+                {isCopied ? <CheckCircle2 size={12} color="var(--accent-emerald)" /> : null}
+              </span>
+              <span className="badge badge-emerald" style={{ fontSize: '0.62rem', padding: '2px 6px' }}>
+                IndexedDB (Non-Extractable)
+              </span>
+            </div>
           ) : (
             <span style={{ color: 'var(--text-muted)' }}>Generating...</span>
           )}
