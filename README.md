@@ -2,6 +2,8 @@
 
 A production-ready demonstrative starter and template for **OAuth 2.0 Demonstrating Proof-of-Possession at the Application Layer (DPoP - [RFC 9449](https://datatracker.ietf.org/doc/html/rfc9449))** built with Next.js App Router, TypeScript, and native Web Cryptography (`jose`).
 
+📖 **Read the in-depth implementation guide:** [DpopImplemnationguide.md](file:///home/nfta/Desktop/Person/templates-and-starters/DPoP/DpopImplemnationguide.md) (Covers both Next.js API Routes and Server Actions).
+
 ---
 
 ## 🛡️ What is DPoP?
