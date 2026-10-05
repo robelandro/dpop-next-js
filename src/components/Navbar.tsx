@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Shield, Key, Lock, LogOut, CheckCircle2 } from 'lucide-react';
+import { Shield, Key, Lock, LogOut, CheckCircle2, RotateCcw } from 'lucide-react';
 import { getClientKeyPair, generateNewClientKeyPair } from '@/lib/client/dpop';
 import type { ClientKeyPairExport } from '@/lib/types';
 
@@ -66,39 +66,41 @@ export default function Navbar() {
 
   return (
     <header style={{
-      borderBottom: '1px solid var(--border-subtle)',
-      backgroundColor: 'rgba(7, 9, 14, 0.85)',
-      backdropFilter: 'blur(16px)',
+      borderBottom: '3px solid #000000',
+      backgroundColor: '#ffffff',
       position: 'sticky',
       top: 0,
       zIndex: 50,
-      padding: '12px 0'
+      padding: '12px 0',
+      boxShadow: '0 4px 0px rgba(0, 0, 0, 0.08)'
     }}>
       <div className="container flex items-center justify-between" style={{ flexWrap: 'wrap', gap: '16px' }}>
         
         {/* Logo and Brand */}
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
           <div style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)',
+            width: '42px',
+            height: '42px',
+            borderRadius: '8px',
+            background: 'var(--neo-yellow)',
+            border: '2.5px solid #000000',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 20px rgba(56, 189, 248, 0.4)'
+            boxShadow: '3px 3px 0px #000000',
+            color: '#000000'
           }}>
-            <Shield size={22} color="#ffffff" />
+            <Shield size={24} strokeWidth={2.5} color="#000000" />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontWeight: 800, fontSize: '1.15rem', color: '#f8fafc', letterSpacing: '-0.02em' }}>
-                Next.js <span style={{ color: 'var(--accent-cyan)' }}>DPoP</span>
+              <span style={{ fontWeight: 900, fontSize: '1.25rem', color: '#000000', letterSpacing: '-0.03em' }}>
+                NEXT.JS <span style={{ backgroundColor: 'var(--neo-yellow)', padding: '0 6px', border: '1.5px solid #000' }}>DPoP</span>
               </span>
-              <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>RFC 9449</span>
+              <span className="badge badge-cyan" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>RFC 9449</span>
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Demonstrating Proof-of-Possession
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Proof-of-Possession Engine
             </div>
           </div>
         </Link>
@@ -108,14 +110,16 @@ export default function Navbar() {
           display: 'flex',
           alignItems: 'center',
           gap: '10px',
-          background: 'rgba(19, 27, 46, 0.7)',
+          background: '#ffffff',
           padding: '6px 14px',
-          borderRadius: 'var(--radius-full)',
-          border: '1px solid var(--border-subtle)',
-          fontSize: '0.8rem'
+          borderRadius: '8px',
+          border: '2px solid #000000',
+          boxShadow: '2.5px 2.5px 0px #000000',
+          fontSize: '0.8rem',
+          fontWeight: 700
         }}>
-          <Key size={14} color="var(--accent-cyan)" />
-          <span style={{ color: 'var(--text-secondary)' }}>Client JKT:</span>
+          <Key size={16} strokeWidth={2.5} color="#000000" />
+          <span style={{ color: 'var(--text-muted)' }}>CLIENT JKT:</span>
           {keyPair ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span
@@ -123,19 +127,23 @@ export default function Navbar() {
                 title="Click to copy client thumbprint"
                 style={{
                   fontFamily: 'var(--font-mono)',
-                  color: 'var(--accent-cyan)',
+                  color: '#000000',
+                  backgroundColor: 'var(--neo-cyan-light)',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  border: '1px solid #000000',
                   cursor: 'pointer',
-                  fontWeight: 600,
+                  fontWeight: 800,
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '4px'
                 }}
               >
                 {keyPair.jkt.slice(0, 8)}...{keyPair.jkt.slice(-6)}
-                {isCopied ? <CheckCircle2 size={12} color="var(--accent-emerald)" /> : null}
+                {isCopied ? <CheckCircle2 size={12} color="#15803d" /> : null}
               </span>
               <span className="badge badge-emerald" style={{ fontSize: '0.62rem', padding: '2px 6px' }}>
-                IndexedDB (Non-Extractable)
+                Hardware/IDB Bound
               </span>
             </div>
           ) : (
@@ -145,25 +153,30 @@ export default function Navbar() {
             onClick={handleRegenerateKeys}
             title="Rotate Client Key Pair"
             style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-muted)',
+              background: '#ffffff',
+              border: '1.5px solid #000000',
+              color: '#000000',
               cursor: 'pointer',
               fontSize: '0.72rem',
+              fontWeight: 800,
               padding: '2px 6px',
-              borderRadius: '4px'
+              borderRadius: '4px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              boxShadow: '1.5px 1.5px 0px #000000'
             }}
           >
-            ↻ Rotate
+            <RotateCcw size={11} strokeWidth={2.5} /> Rotate
           </button>
         </div>
 
         {/* Navigation Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Link
             href="/"
-            className={`btn ${pathname === '/' ? 'btn-secondary' : 'btn-outline'}`}
-            style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+            className={`btn ${pathname === '/' ? 'btn-primary' : 'btn-outline'}`}
+            style={{ padding: '6px 14px', fontSize: '0.825rem' }}
           >
             Overview
           </Link>
@@ -171,26 +184,26 @@ export default function Navbar() {
           <Link
             href="/dashboard"
             className={`btn ${pathname === '/dashboard' ? 'btn-primary' : 'btn-outline'}`}
-            style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+            style={{ padding: '6px 14px', fontSize: '0.825rem' }}
           >
-            <Lock size={14} />
+            <Lock size={14} strokeWidth={2.5} />
             Dashboard
           </Link>
 
           {isLoggedIn ? (
             <button
               onClick={handleLogout}
-              className="btn btn-outline"
-              style={{ padding: '6px 14px', fontSize: '0.85rem', color: 'var(--accent-rose)' }}
+              className="btn btn-danger"
+              style={{ padding: '6px 14px', fontSize: '0.825rem' }}
             >
-              <LogOut size={14} />
+              <LogOut size={14} strokeWidth={2.5} />
               Logout
             </button>
           ) : (
             <Link
               href="/login"
               className={`btn ${pathname === '/login' ? 'btn-primary' : 'btn-outline'}`}
-              style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+              style={{ padding: '6px 14px', fontSize: '0.825rem' }}
             >
               Sign In
             </Link>

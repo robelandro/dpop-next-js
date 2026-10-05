@@ -120,7 +120,7 @@ export default function DashboardPage() {
         // NEXT.JS SERVER ACTION EXECUTION
         const proofUrl = `${window.location.origin}/dashboard`;
         const proof = await createClientDPoPProof({
-          method: 'POST', // Server Actions use POST
+          method: 'POST',
           url: proofUrl,
           accessToken: currentToken || undefined,
           keyPair: activeKeys,
@@ -132,51 +132,46 @@ export default function DashboardPage() {
         const actionResult = await executeSecureEnclaveAction({
           dpopProof: proof,
           accessTokenOverride: currentToken,
-          operation: 'Rotate Quantum Enclave Keys',
+          operation: 'Authorized Enclave Query',
         });
 
-        if (actionResult.success) {
+        if (actionResult.success && actionResult.data) {
           setDashboardData({
-            systemStatus: 'SECURE_SERVER_ACTION_VERIFIED',
+            systemStatus: 'ONLINE (SECURE ENCLAVE - SERVER ACTION)',
             metrics: {
-              threatsPrevented: 143,
+              threatsPrevented: 42,
               dpopTokensActive: 1,
-              replayAttacksBlocked: 40,
+              replayAttacksBlocked: 19,
               securityScore: 100,
             },
             confidentialData: {
-              vaultId: actionResult.data?.vaultId || 'VLT-ACTION-ALPHA',
-              masterEnclaveKey: actionResult.data?.masterEnclaveKey || 'ENCLAVE-ACTION::VERIFIED',
-              accessLevel: 'SERVER-ACTION::PROOF-OF-POSSESSION-VERIFIED',
-              auditLogId: actionResult.data?.auditLogId || 'ACTION-AUDIT',
-              timestamp: actionResult.timestamp || new Date().toISOString(),
+              vaultId: actionResult.data.vaultId || 'VLT-ACTION-DEFAULT',
+              masterEnclaveKey: actionResult.data.masterEnclaveKey || 'SECRET-KEY',
+              accessLevel: actionResult.data.accessLevel || 'AUTHORIZED',
+              auditLogId: actionResult.data.auditLogId || 'LOG-1',
+              timestamp: actionResult.data.timestamp || new Date().toISOString(),
             },
-            user: {
-              id: user?.id || 'usr_42',
-              username: user?.username || 'alice',
-              name: user?.name || 'Alice Vance',
-              role: user?.role || 'Security Engineer',
-            },
+            user: user || { id: 'u1', username: 'alice', role: 'SecOps', name: 'Alice' },
             tokenBinding: {
               tokenJkt: actionResult.tokenJkt || '',
               proofJkt: actionResult.proofJkt || '',
               matched: true,
-              authMethod: 'Server Action (Next.js RPC)',
+              authMethod: 'Next.js Server Action (RPC)',
             },
-            auditTrail: actionResult.auditTrail,
+            auditTrail: actionResult.auditTrail || [],
           });
-          setAuditLog(actionResult.auditTrail);
+          setAuditLog(actionResult.auditTrail || []);
         } else {
           setErrorResponse({
             code: actionResult.code || 'action_failed',
-            message: actionResult.message || 'Server Action verification failed.',
+            message: actionResult.message || 'Server Action execution rejected.',
             tokenJkt: actionResult.tokenJkt,
             proofJkt: actionResult.proofJkt,
           });
-          setAuditLog(actionResult.auditTrail);
+          setAuditLog(actionResult.auditTrail || []);
         }
       } else {
-        // REST API ROUTE HANDLER (/api/dashboard)
+        // REST API ROUTE EXECUTION (/api/dashboard)
         const proofUrl = `${window.location.origin}/api/dashboard`;
         const proof = await createClientDPoPProof({
           method: 'GET',
@@ -191,7 +186,6 @@ export default function DashboardPage() {
         const headers: Record<string, string> = {
           DPoP: proof,
         };
-
         if (currentToken) {
           headers['Authorization'] = `DPoP ${currentToken}`;
         }
@@ -348,8 +342,10 @@ export default function DashboardPage() {
   if (!authChecked) {
     return (
       <div className="container" style={{ padding: '80px 20px', textAlign: 'center' }}>
-        <RefreshCw size={28} className="animate-spin" color="var(--accent-cyan)" />
-        <p style={{ marginTop: '16px', color: 'var(--text-secondary)' }}>Verifying session and DPoP keys...</p>
+        <div className="neo-card" style={{ maxWidth: '400px', margin: '0 auto', padding: '36px' }}>
+          <RefreshCw size={32} className="animate-spin" color="#000000" strokeWidth={2.5} style={{ margin: '0 auto' }} />
+          <p style={{ marginTop: '16px', fontWeight: 800, fontSize: '1rem' }}>Verifying session and DPoP keys...</p>
+        </div>
       </div>
     );
   }
@@ -358,20 +354,20 @@ export default function DashboardPage() {
   const isKeyMatched = keyPair?.jkt && tokenJkt && keyPair.jkt === tokenJkt;
 
   return (
-    <div className="container" style={{ paddingTop: '32px', paddingBottom: '80px' }}>
+    <div className="container" style={{ paddingTop: '36px', paddingBottom: '80px' }}>
       
       {/* Page Title & Status Header */}
-      <div style={{ marginBottom: '28px' }}>
+      <div style={{ marginBottom: '32px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-              <span className="badge badge-cyan">Protected Enclave</span>
-              <span className="badge badge-purple">RFC 9449 Enforcement</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <span className="badge badge-cyan" style={{ fontSize: '0.75rem' }}>Protected Enclave</span>
+              <span className="badge badge-purple" style={{ fontSize: '0.75rem' }}>RFC 9449 Enforcement</span>
             </div>
-            <h1 style={{ fontSize: '2.2rem', fontWeight: 800, letterSpacing: '-0.03em' }}>
-              DPoP Protected Dashboard
+            <h1 style={{ fontSize: '2.5rem', fontWeight: 900, letterSpacing: '-0.03em' }}>
+              DPoP PROTECTED DASHBOARD
             </h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', fontWeight: 600 }}>
               This resource endpoint (<code className="code-inline">GET /api/dashboard</code>) strictly demands 
               a cryptographically verified DPoP proof matching the access token&apos;s sender constraint.
             </p>
@@ -379,27 +375,30 @@ export default function DashboardPage() {
 
           {/* User profile / session pill */}
           {user ? (
-            <div className="glass-panel" style={{ padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div className="neo-card" style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)',
+                width: '40px',
+                height: '40px',
+                borderRadius: '8px',
+                background: 'var(--neo-yellow)',
+                border: '2px solid #000000',
+                boxShadow: '2px 2px 0px #000000',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontWeight: 700,
-                fontSize: '0.9rem'
+                fontWeight: 900,
+                fontSize: '1rem',
+                color: '#000000'
               }}>
                 {user.username.slice(0, 2).toUpperCase()}
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{user.name}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--accent-cyan)' }}>{user.role}</div>
+                <div style={{ fontWeight: 900, fontSize: '0.95rem' }}>{user.name}</div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--accent-cyan)' }}>{user.role}</div>
               </div>
             </div>
           ) : (
-            <Link href="/login" className="btn btn-primary" style={{ padding: '10px 18px' }}>
+            <Link href="/login" className="btn btn-primary" style={{ padding: '10px 20px' }}>
               Login to Obtain DPoP Token
             </Link>
           )}
@@ -407,26 +406,35 @@ export default function DashboardPage() {
       </div>
 
       {/* Cryptographic Binding Visualizer Bar */}
-      <div className="glass-panel" style={{ padding: '20px 24px', marginBottom: '28px', backgroundColor: 'rgba(13, 18, 31, 0.65)' }}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+      <div className="neo-card" style={{ padding: '24px', marginBottom: '32px' }}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
           
           {/* Client Private/Public Key Status */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            backgroundColor: 'var(--neo-cyan-light)',
+            padding: '16px',
+            borderRadius: '8px',
+            border: '2px solid #000000',
+            boxShadow: '3px 3px 0px #000000'
+          }}>
+            <div style={{ fontSize: '0.72rem', color: '#000000', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 900 }}>
               1. Browser Private Key (Possession)
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <Key size={16} color="var(--accent-cyan)" />
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--accent-cyan)', fontWeight: 600 }}>
+              <Key size={18} strokeWidth={2.5} color="#000000" />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem', color: '#000000', fontWeight: 800 }}>
                 {keyPair?.jkt ? `${keyPair.jkt.slice(0, 10)}...${keyPair.jkt.slice(-6)}` : 'No key generated'}
               </span>
               <span className="badge badge-emerald" style={{ fontSize: '0.62rem', padding: '2px 6px' }}>
-                IndexedDB (Non-Extractable)
+                Hardware IDB
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                ES256 (extractable: false)
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', marginTop: 'auto' }}>
+              <span style={{ fontSize: '0.75rem', color: '#000000', fontWeight: 700 }}>
+                ES256 (non-extractable)
               </span>
               <button
                 type="button"
@@ -435,8 +443,8 @@ export default function DashboardPage() {
                   alert(res.message);
                 }}
                 className="btn btn-outline"
-                style={{ padding: '2px 6px', fontSize: '0.7rem' }}
-                title="Verify that browser blocks exportKey()"
+                style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                title="Verify browser blocks exportKey()"
               >
                 Test exportKey()
               </button>
@@ -444,43 +452,61 @@ export default function DashboardPage() {
           </div>
 
           {/* Access Token Confirmation Claim (cnf.jkt) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            backgroundColor: 'var(--neo-purple-light)',
+            padding: '16px',
+            borderRadius: '8px',
+            border: '2px solid #000000',
+            boxShadow: '3px 3px 0px #000000'
+          }}>
+            <div style={{ fontSize: '0.72rem', color: '#000000', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 900 }}>
               2. Token Confirmation Claim (cnf.jkt)
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Shield size={16} color={tokenJkt ? 'var(--accent-purple)' : 'var(--accent-rose)'} />
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: tokenJkt ? '#a5b4fc' : '#fb7185', fontWeight: 600 }}>
+              <Shield size={18} strokeWidth={2.5} color="#000000" />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem', color: '#000000', fontWeight: 800 }}>
                 {tokenJkt ? `${tokenJkt.slice(0, 10)}...${tokenJkt.slice(-6)}` : 'No DPoP Token in Session'}
               </span>
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              Source: {token ? 'HTTP Cookie / JWT' : 'Not Authenticated'}
+            <div style={{ fontSize: '0.75rem', color: '#000000', fontWeight: 700, marginTop: 'auto' }}>
+              Source: {token ? 'HTTP Cookie / JWT cnf' : 'Not Authenticated'}
             </div>
           </div>
 
           {/* Cryptographic Matching Status */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            backgroundColor: isKeyMatched ? 'var(--neo-emerald-light)' : 'var(--neo-yellow)',
+            padding: '16px',
+            borderRadius: '8px',
+            border: '2px solid #000000',
+            boxShadow: '3px 3px 0px #000000'
+          }}>
+            <div style={{ fontSize: '0.72rem', color: '#000000', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 900 }}>
               3. Sender-Constrained Binding
             </div>
             <div>
               {isKeyMatched ? (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-emerald)', fontWeight: 700, fontSize: '0.875rem' }}>
-                  <CheckCircle2 size={16} />
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#15803d', fontWeight: 900, fontSize: '0.9rem' }}>
+                  <CheckCircle2 size={18} strokeWidth={2.5} />
                   <span>PERFECT BINDING MATCH</span>
                 </div>
               ) : (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-amber)', fontWeight: 700, fontSize: '0.875rem' }}>
-                  <AlertTriangle size={16} />
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#000000', fontWeight: 900, fontSize: '0.9rem' }}>
+                  <AlertTriangle size={18} strokeWidth={2.5} />
                   <span>{token ? 'KEY MISMATCH / UNBOUND' : 'LOGIN REQUIRED'}</span>
                 </div>
               )}
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: '0.75rem', color: '#000000', fontWeight: 700, marginTop: 'auto' }}>
               {isKeyMatched
                 ? 'Your browser holds the exact private key bound to this token'
-                : 'Login to bind your current browser key'}
+                : 'Login to bind your current browser key pair'}
             </div>
           </div>
 
@@ -488,13 +514,13 @@ export default function DashboardPage() {
       </div>
 
       <div style={{ marginBottom: '36px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
           <div>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>
+            <h2 style={{ fontSize: '1.6rem', fontWeight: 900 }}>
               Interactive DPoP Verification Testing
             </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-              Test legitimate sender-constrained access versus simulated token theft attacks side-by-side.
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', fontWeight: 600 }}>
+              Test authentic sender-constrained access versus simulated token theft attacks side-by-side.
             </p>
           </div>
 
@@ -502,10 +528,11 @@ export default function DashboardPage() {
           <div style={{
             display: 'inline-flex',
             padding: '4px',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: 'rgba(8, 12, 20, 0.8)',
-            border: '1px solid var(--border-subtle)',
-            gap: '4px'
+            borderRadius: '8px',
+            backgroundColor: '#ffffff',
+            border: '2.5px solid #000000',
+            boxShadow: '3px 3px 0px #000000',
+            gap: '6px'
           }}>
             <button
               type="button"
@@ -513,13 +540,14 @@ export default function DashboardPage() {
               style={{
                 padding: '6px 14px',
                 borderRadius: '6px',
-                border: 'none',
+                border: channel === 'api' ? '2px solid #000000' : '2px solid transparent',
                 cursor: 'pointer',
-                fontSize: '0.825rem',
-                fontWeight: 600,
-                transition: 'all 0.2s ease',
-                backgroundColor: channel === 'api' ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
-                color: channel === 'api' ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+                transition: 'all 0.15s ease',
+                backgroundColor: channel === 'api' ? 'var(--neo-yellow)' : 'transparent',
+                color: '#000000',
+                boxShadow: channel === 'api' ? '2px 2px 0px #000000' : 'none'
               }}
             >
               🌐 REST API Route (/api/dashboard)
@@ -530,49 +558,56 @@ export default function DashboardPage() {
               style={{
                 padding: '6px 14px',
                 borderRadius: '6px',
-                border: 'none',
+                border: channel === 'action' ? '2px solid #000000' : '2px solid transparent',
                 cursor: 'pointer',
-                fontSize: '0.825rem',
-                fontWeight: 600,
-                transition: 'all 0.2s ease',
-                backgroundColor: channel === 'action' ? 'rgba(129, 140, 248, 0.25)' : 'transparent',
-                color: channel === 'action' ? '#a5b4fc' : 'var(--text-muted)',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+                transition: 'all 0.15s ease',
+                backgroundColor: channel === 'action' ? 'var(--neo-purple-light)' : 'transparent',
+                color: '#000000',
+                boxShadow: channel === 'action' ? '2px 2px 0px #000000' : 'none'
               }}
             >
-              ⚡ Next.js Server Action (actions/dashboard.ts)
+              ⚡ Next.js Server Action
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           
           {/* BUTTON 1 CARD: LEGITIMATE CLIENT */}
           <div
-            className="glass-panel glass-card-interactive"
             style={{
-              padding: '28px',
-              border: '1px solid rgba(16, 185, 129, 0.35)',
-              background: 'radial-gradient(ellipse 100% 80% at 50% 0%, rgba(16, 185, 129, 0.1), rgba(19, 27, 46, 0.85))'
+              padding: '30px',
+              border: '3.5px solid #000000',
+              borderRadius: '12px',
+              backgroundColor: 'var(--neo-emerald-light)',
+              boxShadow: '7px 7px 0px #000000',
+              display: 'flex',
+              flexDirection: 'column'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '10px',
-                  backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--neo-emerald)',
+                  border: '2px solid #000000',
+                  boxShadow: '2.5px 2.5px 0px #000000',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  color: '#000000'
                 }}>
-                  <ShieldCheck size={20} color="var(--accent-emerald)" />
+                  <ShieldCheck size={22} strokeWidth={2.5} />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#34d399' }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#000000' }}>
                     1. Authorized DPoP Request
                   </h3>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#15803d', textTransform: 'uppercase' }}>
                     Genuine Client + Matching Private Key
                   </span>
                 </div>
@@ -580,64 +615,72 @@ export default function DashboardPage() {
               <span className="badge badge-emerald">Expected: 200 OK</span>
             </div>
 
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '20px', lineHeight: '1.6' }}>
+            <p style={{ color: '#000000', fontSize: '0.9rem', marginBottom: '22px', lineHeight: '1.6', fontWeight: 600 }}>
               Signs a real-time DPoP proof with your browser&apos;s private key, hashes the access token into <code className="code-inline">ath</code>, 
               and submits to <code className="code-inline">/api/dashboard</code>. The server validates that <code className="code-inline">jkt == cnf.jkt</code>.
             </p>
 
-            <button
-              onClick={handleLegitimateRequest}
-              disabled={executing || !token}
-              className="btn btn-emerald"
-              style={{ width: '100%', padding: '14px', fontSize: '0.95rem' }}
-            >
-              {executing && lastAction === 'legitimate' ? (
-                <>
-                  <RefreshCw size={18} className="animate-spin" />
-                  Cryptographic Verification in Progress...
-                </>
-              ) : (
-                <>
-                  <Zap size={18} />
-                  Hit Dashboard (Legitimate DPoP Proof)
-                </>
-              )}
-            </button>
+            <div style={{ marginTop: 'auto' }}>
+              <button
+                onClick={handleLegitimateRequest}
+                disabled={executing || !token}
+                className="btn btn-emerald"
+                style={{ width: '100%', padding: '14px', fontSize: '1rem' }}
+              >
+                {executing && lastAction === 'legitimate' ? (
+                  <>
+                    <RefreshCw size={18} className="animate-spin" strokeWidth={2.5} />
+                    Cryptographic Verification in Progress...
+                  </>
+                ) : (
+                  <>
+                    <Zap size={18} strokeWidth={2.5} />
+                    Hit Dashboard (Legitimate DPoP Proof)
+                  </>
+                )}
+              </button>
 
-            {!token && (
-              <div style={{ marginTop: '10px', fontSize: '0.775rem', color: 'var(--accent-amber)', textAlign: 'center' }}>
-                Please <Link href="/login" style={{ textDecoration: 'underline' }}>Sign In</Link> first to obtain a valid DPoP-bound JWT.
-              </div>
-            )}
+              {!token && (
+                <div style={{ marginTop: '12px', fontSize: '0.8rem', color: '#000000', fontWeight: 700, textAlign: 'center' }}>
+                  Please <Link href="/login" style={{ textDecoration: 'underline' }}>Sign In</Link> first to obtain a valid DPoP-bound JWT.
+                </div>
+              )}
+            </div>
           </div>
 
           {/* BUTTON 2 CARD: ATTACKER REPLAY SIMULATOR */}
           <div
-            className="glass-panel glass-card-interactive"
             style={{
-              padding: '28px',
-              border: '1px solid rgba(244, 63, 94, 0.35)',
-              background: 'radial-gradient(ellipse 100% 80% at 50% 0%, rgba(244, 63, 94, 0.1), rgba(19, 27, 46, 0.85))'
+              padding: '30px',
+              border: '3.5px solid #000000',
+              borderRadius: '12px',
+              backgroundColor: 'var(--neo-rose-light)',
+              boxShadow: '7px 7px 0px #000000',
+              display: 'flex',
+              flexDirection: 'column'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '10px',
-                  backgroundColor: 'rgba(244, 63, 94, 0.2)',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--neo-rose)',
+                  border: '2px solid #000000',
+                  boxShadow: '2.5px 2.5px 0px #000000',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  color: '#ffffff'
                 }}>
-                  <ShieldAlert size={20} color="var(--accent-rose)" />
+                  <ShieldAlert size={22} strokeWidth={2.5} />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#fb7185' }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#000000' }}>
                     2. Stolen Token Attack Simulator
                   </h3>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#991b1b', textTransform: 'uppercase' }}>
                     Adversary Replaying Stolen JWT
                   </span>
                 </div>
@@ -645,22 +688,25 @@ export default function DashboardPage() {
               <span className="badge badge-rose">Expected: 401 Blocked</span>
             </div>
 
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '14px', lineHeight: '1.6' }}>
+            <p style={{ color: '#000000', fontSize: '0.9rem', marginBottom: '14px', lineHeight: '1.6', fontWeight: 600 }}>
               Simulates an adversary who sniffed or stolen the user&apos;s real JWT. Choose the adversary&apos;s exploit vector:
             </p>
 
             {/* Attack Vector Selectors */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '18px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '22px' }}>
               <label style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                fontSize: '0.8rem',
+                gap: '10px',
+                fontSize: '0.85rem',
                 cursor: 'pointer',
-                padding: '6px 10px',
+                padding: '8px 12px',
                 borderRadius: '6px',
-                backgroundColor: attackMode === 'attacker_key' ? 'rgba(244, 63, 94, 0.15)' : 'transparent',
-                border: '1px solid ' + (attackMode === 'attacker_key' ? 'rgba(244, 63, 94, 0.4)' : 'transparent')
+                backgroundColor: attackMode === 'attacker_key' ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
+                border: '2px solid #000000',
+                boxShadow: attackMode === 'attacker_key' ? '3px 3px 0px #000000' : 'none',
+                fontWeight: 700,
+                color: '#000000'
               }}>
                 <input
                   type="radio"
@@ -674,13 +720,16 @@ export default function DashboardPage() {
               <label style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                fontSize: '0.8rem',
+                gap: '10px',
+                fontSize: '0.85rem',
                 cursor: 'pointer',
-                padding: '6px 10px',
+                padding: '8px 12px',
                 borderRadius: '6px',
-                backgroundColor: attackMode === 'no_dpop' ? 'rgba(244, 63, 94, 0.15)' : 'transparent',
-                border: '1px solid ' + (attackMode === 'no_dpop' ? 'rgba(244, 63, 94, 0.4)' : 'transparent')
+                backgroundColor: attackMode === 'no_dpop' ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
+                border: '2px solid #000000',
+                boxShadow: attackMode === 'no_dpop' ? '3px 3px 0px #000000' : 'none',
+                fontWeight: 700,
+                color: '#000000'
               }}>
                 <input
                   type="radio"
@@ -694,13 +743,16 @@ export default function DashboardPage() {
               <label style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                fontSize: '0.8rem',
+                gap: '10px',
+                fontSize: '0.85rem',
                 cursor: 'pointer',
-                padding: '6px 10px',
+                padding: '8px 12px',
                 borderRadius: '6px',
-                backgroundColor: attackMode === 'replayed_jti' ? 'rgba(244, 63, 94, 0.15)' : 'transparent',
-                border: '1px solid ' + (attackMode === 'replayed_jti' ? 'rgba(244, 63, 94, 0.4)' : 'transparent')
+                backgroundColor: attackMode === 'replayed_jti' ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
+                border: '2px solid #000000',
+                boxShadow: attackMode === 'replayed_jti' ? '3px 3px 0px #000000' : 'none',
+                fontWeight: 700,
+                color: '#000000'
               }}>
                 <input
                   type="radio"
@@ -712,24 +764,26 @@ export default function DashboardPage() {
               </label>
             </div>
 
-            <button
-              onClick={handleAttackRequest}
-              disabled={executing || !token}
-              className="btn btn-danger"
-              style={{ width: '100%', padding: '14px', fontSize: '0.95rem' }}
-            >
-              {executing && lastAction === 'attack' ? (
-                <>
-                  <RefreshCw size={18} className="animate-spin" />
-                  Testing Attack Defense...
-                </>
-              ) : (
-                <>
-                  <ShieldAlert size={18} />
-                  Hit with Fake / Stolen Token (Simulate Exploit)
-                </>
-              )}
-            </button>
+            <div style={{ marginTop: 'auto' }}>
+              <button
+                onClick={handleAttackRequest}
+                disabled={executing || !token}
+                className="btn btn-danger"
+                style={{ width: '100%', padding: '14px', fontSize: '1rem' }}
+              >
+                {executing && lastAction === 'attack' ? (
+                  <>
+                    <RefreshCw size={18} className="animate-spin" strokeWidth={2.5} />
+                    Testing Attack Defense...
+                  </>
+                ) : (
+                  <>
+                    <ShieldAlert size={18} strokeWidth={2.5} />
+                    Hit with Fake / Stolen Token (Simulate Exploit)
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
         </div>
@@ -739,30 +793,35 @@ export default function DashboardPage() {
       {/* LIVE EXECUTION RESULTS DISPLAY                                            */}
       {/* ========================================================================= */}
       {dashboardData && (
-        <div className="glass-panel" style={{
-          padding: '30px',
-          marginBottom: '32px',
-          border: '1px solid rgba(16, 185, 129, 0.5)',
-          boxShadow: 'var(--shadow-glow-emerald)'
+        <div style={{
+          padding: '32px',
+          marginBottom: '36px',
+          border: '4px solid #000000',
+          borderRadius: '14px',
+          backgroundColor: '#bbf7d0',
+          boxShadow: '8px 8px 0px #000000'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '12px',
-                backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                width: '46px',
+                height: '46px',
+                borderRadius: '8px',
+                backgroundColor: 'var(--neo-emerald)',
+                border: '2.5px solid #000000',
+                boxShadow: '3px 3px 0px #000000',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                color: '#000000'
               }}>
-                <Unlock size={24} color="var(--accent-emerald)" />
+                <Unlock size={26} strokeWidth={2.5} />
               </div>
               <div>
-                <h3 style={{ fontSize: '1.3rem', color: '#34d399', fontWeight: 800 }}>
+                <h3 style={{ fontSize: '1.45rem', color: '#000000', fontWeight: 900 }}>
                   200 OK — DPoP Proof Verified: Access Granted
                 </h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                <p style={{ color: '#000000', fontSize: '0.9rem', fontWeight: 600 }}>
                   The server verified that you possess the private key corresponding to <code className="code-inline">{dashboardData.tokenBinding.tokenJkt}</code>.
                 </p>
               </div>
@@ -773,31 +832,31 @@ export default function DashboardPage() {
           </div>
 
           {/* Confidential Vault Data Unlocked */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4" style={{ marginBottom: '24px' }}>
-            <div style={{ backgroundColor: 'rgba(8, 12, 20, 0.7)', padding: '16px', borderRadius: 'var(--radius-md)' }}>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Enclave Status</div>
-              <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--accent-emerald)', marginTop: '4px' }}>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4" style={{ marginBottom: '8px' }}>
+            <div style={{ backgroundColor: '#ffffff', padding: '16px', borderRadius: '8px', border: '2px solid #000000', boxShadow: '3px 3px 0px #000000' }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Enclave Status</div>
+              <div style={{ fontSize: '1rem', fontWeight: 900, color: '#15803d', marginTop: '4px' }}>
                 {dashboardData.systemStatus}
               </div>
             </div>
 
-            <div style={{ backgroundColor: 'rgba(8, 12, 20, 0.7)', padding: '16px', borderRadius: 'var(--radius-md)' }}>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Vault Identifier</div>
-              <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--accent-cyan)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ backgroundColor: '#ffffff', padding: '16px', borderRadius: '8px', border: '2px solid #000000', boxShadow: '3px 3px 0px #000000' }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Vault Identifier</div>
+              <div style={{ fontSize: '1rem', fontWeight: 900, color: '#000000', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
                 {dashboardData.confidentialData.vaultId}
               </div>
             </div>
 
-            <div style={{ backgroundColor: 'rgba(8, 12, 20, 0.7)', padding: '16px', borderRadius: 'var(--radius-md)' }}>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Restricted Master Key</div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f8fafc', marginTop: '6px', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
+            <div style={{ backgroundColor: '#ffffff', padding: '16px', borderRadius: '8px', border: '2px solid #000000', boxShadow: '3px 3px 0px #000000' }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Restricted Master Key</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 900, color: '#000000', marginTop: '6px', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
                 {dashboardData.confidentialData.masterEnclaveKey}
               </div>
             </div>
 
-            <div style={{ backgroundColor: 'rgba(8, 12, 20, 0.7)', padding: '16px', borderRadius: 'var(--radius-md)' }}>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Replay Defenses Active</div>
-              <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--accent-purple)', marginTop: '4px' }}>
+            <div style={{ backgroundColor: '#ffffff', padding: '16px', borderRadius: '8px', border: '2px solid #000000', boxShadow: '3px 3px 0px #000000' }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Replay Defenses Active</div>
+              <div style={{ fontSize: '1rem', fontWeight: 900, color: '#000000', marginTop: '4px' }}>
                 {dashboardData.metrics.replayAttacksBlocked} Blocked / 100% Score
               </div>
             </div>
@@ -806,34 +865,39 @@ export default function DashboardPage() {
       )}
 
       {errorResponse && (
-        <div className="glass-panel" style={{
-          padding: '30px',
-          marginBottom: '32px',
-          border: '1px solid rgba(244, 63, 94, 0.5)',
-          boxShadow: 'var(--shadow-glow-rose)'
+        <div style={{
+          padding: '32px',
+          marginBottom: '36px',
+          border: '4px solid #000000',
+          borderRadius: '14px',
+          backgroundColor: '#fecdd3',
+          boxShadow: '8px 8px 0px #000000'
         }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
               <div style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '12px',
-                backgroundColor: 'rgba(244, 63, 94, 0.2)',
+                width: '46px',
+                height: '46px',
+                borderRadius: '8px',
+                backgroundColor: 'var(--neo-rose)',
+                border: '2.5px solid #000000',
+                boxShadow: '3px 3px 0px #000000',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                flexShrink: 0
+                flexShrink: 0,
+                color: '#ffffff'
               }}>
-                <XCircle size={26} color="var(--accent-rose)" />
+                <XCircle size={28} strokeWidth={2.5} />
               </div>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <h3 style={{ fontSize: '1.3rem', color: '#fb7185', fontWeight: 800 }}>
+                  <h3 style={{ fontSize: '1.45rem', color: '#000000', fontWeight: 900 }}>
                     401 Unauthorized — Attack Thwarted by DPoP
                   </h3>
                   <span className="badge badge-rose">{errorResponse.code}</span>
                 </div>
-                <p style={{ color: '#fda4af', fontSize: '0.95rem', marginTop: '4px', fontWeight: 500 }}>
+                <p style={{ color: '#000000', fontSize: '0.95rem', marginTop: '4px', fontWeight: 700 }}>
                   {errorResponse.message}
                 </p>
               </div>
@@ -843,30 +907,31 @@ export default function DashboardPage() {
           {/* Cryptographic Thumbprint Mismatch Box */}
           {errorResponse.tokenJkt && errorResponse.proofJkt && errorResponse.proofJkt !== 'none' && (
             <div style={{
-              backgroundColor: 'rgba(8, 12, 20, 0.85)',
-              padding: '18px',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid rgba(244, 63, 94, 0.3)',
-              marginBottom: '18px'
+              backgroundColor: '#ffffff',
+              padding: '20px',
+              borderRadius: '8px',
+              border: '2.5px solid #000000',
+              boxShadow: '3px 3px 0px #000000',
+              marginBottom: '10px'
             }}>
-              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--accent-rose)', marginBottom: '8px' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--accent-rose)', marginBottom: '10px', textTransform: 'uppercase' }}>
                 PROOF-OF-POSSESSION DISCREPANCY ANALYSIS:
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.825rem' }}>
-                <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '10px', borderRadius: '6px' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>ACCESS TOKEN SENDER BINDING (cnf.jkt):</div>
-                  <div style={{ color: 'var(--accent-cyan)', wordBreak: 'break-all', marginTop: '4px' }}>
+                <div style={{ backgroundColor: 'var(--neo-cyan-light)', padding: '12px', borderRadius: '6px', border: '1.5px solid #000' }}>
+                  <div style={{ color: '#000000', fontSize: '0.72rem', fontWeight: 800 }}>ACCESS TOKEN SENDER BINDING (cnf.jkt):</div>
+                  <div style={{ color: '#000000', wordBreak: 'break-all', marginTop: '4px', fontWeight: 800 }}>
                     {errorResponse.tokenJkt}
                   </div>
                 </div>
-                <div style={{ backgroundColor: 'rgba(244, 63, 94, 0.1)', padding: '10px', borderRadius: '6px' }}>
-                  <div style={{ color: 'var(--accent-rose)', fontSize: '0.7rem' }}>ATTACKER DPOP PROOF KEY (jkt):</div>
-                  <div style={{ color: '#fb7185', wordBreak: 'break-all', marginTop: '4px' }}>
+                <div style={{ backgroundColor: 'var(--neo-rose-light)', padding: '12px', borderRadius: '6px', border: '1.5px solid #000' }}>
+                  <div style={{ color: '#000000', fontSize: '0.72rem', fontWeight: 800 }}>ATTACKER DPOP PROOF KEY (jkt):</div>
+                  <div style={{ color: '#991b1b', wordBreak: 'break-all', marginTop: '4px', fontWeight: 800 }}>
                     {errorResponse.proofJkt}
                   </div>
                 </div>
               </div>
-              <div style={{ fontSize: '0.775rem', color: 'var(--text-secondary)', marginTop: '10px' }}>
+              <div style={{ fontSize: '0.825rem', color: '#000000', marginTop: '12px', fontWeight: 600 }}>
                 💡 <strong>Why this stopped the attack:</strong> Even though the attacker had the victim&apos;s real access token, 
                 they did not possess the victim&apos;s private key. The server detected that the DPoP signature key thumbprint did not 
                 match the <code className="code-inline">cnf.jkt</code> stamped inside the JWT!
@@ -880,20 +945,31 @@ export default function DashboardPage() {
       {/* AUDIT TRAIL CHECKLIST                                                     */}
       {/* ========================================================================= */}
       {auditLog.length > 0 && (
-        <div className="glass-panel" style={{ padding: '24px', marginBottom: '32px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Terminal size={18} color="var(--accent-cyan)" />
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>
+        <div className="neo-card" style={{ padding: '28px', marginBottom: '36px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '6px',
+                backgroundColor: 'var(--neo-yellow)',
+                border: '1.5px solid #000',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Terminal size={18} strokeWidth={2.5} color="#000000" />
+              </div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 900 }}>
                 Server Cryptographic Verification Audit Trail (RFC 9449)
               </h3>
             </div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            <span className="badge badge-amber" style={{ fontSize: '0.75rem' }}>
               {auditLog.length} Security Assertions Evaluated
             </span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {auditLog.map((step, idx) => (
               <div
                 key={idx}
@@ -901,26 +977,27 @@ export default function DashboardPage() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '10px 14px',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: step.status === 'passed' ? 'rgba(8, 12, 20, 0.7)' : 'rgba(244, 63, 94, 0.1)',
-                  border: '1px solid ' + (step.status === 'passed' ? 'var(--border-subtle)' : 'rgba(244, 63, 94, 0.3)'),
-                  fontSize: '0.85rem',
+                  padding: '12px 16px',
+                  borderRadius: '6px',
+                  backgroundColor: step.status === 'passed' ? 'var(--neo-emerald-light)' : 'var(--neo-rose-light)',
+                  border: '2px solid #000000',
+                  boxShadow: '2px 2px 0px #000000',
+                  fontSize: '0.875rem',
                   gap: '14px',
                   flexWrap: 'wrap'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {step.status === 'passed' ? (
-                    <CheckCircle2 size={16} color="var(--accent-emerald)" />
+                    <CheckCircle2 size={18} strokeWidth={2.5} color="#15803d" />
                   ) : (
-                    <XCircle size={16} color="var(--accent-rose)" />
+                    <XCircle size={18} strokeWidth={2.5} color="var(--neo-rose)" />
                   )}
-                  <span style={{ fontWeight: 600, color: step.status === 'passed' ? 'var(--text-primary)' : '#fb7185' }}>
+                  <span style={{ fontWeight: 800, color: '#000000' }}>
                     {step.step}
                   </span>
                 </div>
-                <div style={{ color: step.status === 'passed' ? 'var(--text-muted)' : '#fda4af', fontSize: '0.8rem', fontFamily: 'var(--font-mono)' }}>
+                <div style={{ color: '#000000', fontSize: '0.825rem', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
                   {step.details}
                 </div>
               </div>
@@ -932,14 +1009,25 @@ export default function DashboardPage() {
       {/* ========================================================================= */}
       {/* TECHNICAL INSPECTOR (JWT & DPOP PROOF)                                     */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         
         {/* Token Card */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Lock size={16} color="var(--accent-cyan)" />
-              <h4 style={{ fontSize: '1rem', fontWeight: 700 }}>Access Token (Server Signed JWT)</h4>
+        <div className="neo-card" style={{ padding: '28px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '6px',
+                backgroundColor: 'var(--neo-cyan-light)',
+                border: '1.5px solid #000',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Lock size={16} strokeWidth={2.5} color="#000000" />
+              </div>
+              <h4 style={{ fontSize: '1.05rem', fontWeight: 900 }}>Access Token (Server Signed JWT)</h4>
             </div>
             {token && (
               <button
@@ -947,13 +1035,13 @@ export default function DashboardPage() {
                 className="btn btn-outline"
                 style={{ padding: '4px 10px', fontSize: '0.75rem' }}
               >
-                <Copy size={12} />
+                <Copy size={12} strokeWidth={2.5} />
                 {copiedToken ? 'Copied' : 'Copy'}
               </button>
             )}
           </div>
 
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '12px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '14px', fontWeight: 600 }}>
             Issued by Authorization Server with sender-constraining claim <code className="code-inline">cnf.jkt</code>:
           </p>
 
@@ -962,23 +1050,34 @@ export default function DashboardPage() {
               {JSON.stringify(tokenPayload, null, 2)}
             </pre>
           ) : (
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: '16px 0' }}>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem', padding: '16px 0', fontWeight: 600 }}>
               No active token. Please login to generate one.
             </div>
           )}
         </div>
 
         {/* DPoP Proof Card */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Key size={16} color="var(--accent-purple)" />
-              <h4 style={{ fontSize: '1rem', fontWeight: 700 }}>Last DPoP Proof Header (Client Signed)</h4>
+        <div className="neo-card" style={{ padding: '28px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '6px',
+                backgroundColor: 'var(--neo-purple-light)',
+                border: '1.5px solid #000',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Key size={16} strokeWidth={2.5} color="#000000" />
+              </div>
+              <h4 style={{ fontSize: '1.05rem', fontWeight: 900 }}>Last DPoP Proof Header (Client Signed)</h4>
             </div>
             <span className="badge badge-purple" style={{ fontSize: '0.7rem' }}>typ: dpop+jwt</span>
           </div>
 
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '12px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '14px', fontWeight: 600 }}>
             Generated in-memory by client browser with embedded public JWK:
           </p>
 
@@ -987,7 +1086,7 @@ export default function DashboardPage() {
               {JSON.stringify(lastDPoPDecoded, null, 2)}
             </pre>
           ) : (
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: '16px 0' }}>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem', padding: '16px 0', fontWeight: 600 }}>
               Click either test button above to dispatch a request and inspect the client DPoP proof.
             </div>
           )}
@@ -996,14 +1095,34 @@ export default function DashboardPage() {
       </div>
 
       {/* Explanatory RFC 9449 Security Architecture Banner */}
-      <div className="glass-panel" style={{ marginTop: '32px', padding: '24px', backgroundColor: 'rgba(13, 18, 31, 0.45)' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-          <Info size={20} color="var(--accent-cyan)" style={{ flexShrink: 0, marginTop: '2px' }} />
+      <div style={{
+        marginTop: '36px',
+        padding: '28px',
+        backgroundColor: 'var(--bg-surface-alt)',
+        border: '3px solid #000000',
+        borderRadius: '12px',
+        boxShadow: '5px 5px 0px #000000'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
+          <div style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '8px',
+            backgroundColor: '#ffffff',
+            border: '2px solid #000000',
+            boxShadow: '2px 2px 0px #000000',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <Info size={20} strokeWidth={2.5} color="#000000" />
+          </div>
           <div>
-            <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '6px' }}>
+            <h4 style={{ fontSize: '1.05rem', fontWeight: 900, marginBottom: '8px', textTransform: 'uppercase' }}>
               RFC 9449 Sender-Constrained Security Architecture
             </h4>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.6' }}>
+            <p style={{ color: '#000000', fontSize: '0.875rem', lineHeight: '1.7', fontWeight: 600 }}>
               Traditional Bearer tokens (RFC 6750) act like cash: anyone who intercepts the token can spend it. 
               <strong> DPoP (RFC 9449) binds the token to the client&apos;s private key.</strong> Even if an adversary intercepts 
               the access token from an insecure log, browser memory, or compromised proxy, the token is completely useless to the attacker 

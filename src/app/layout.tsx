@@ -27,25 +27,51 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <Navbar />
+        {/* Signature Neo-Brutalist Marquee Banner */}
+        <div className="neo-marquee-container" aria-hidden="true">
+          <div className="neo-marquee-content">
+            ⚡ RFC 9449 SENDER-CONSTRAINED TOKENS &nbsp;✦&nbsp; HARDWARE NON-EXTRACTABLE ECDSA P-256 KEYS &nbsp;✦&nbsp; REPLAY ATTACK DEFENSE &nbsp;✦&nbsp; CRYPTOGRAPHIC BINDING CNF.JKT &nbsp;✦&nbsp; ZERO BEARER EXPLOITATION &nbsp;✦&nbsp; NEXT.JS APP ROUTER ENGINE &nbsp;✦&nbsp; 
+          </div>
+          <div className="neo-marquee-content">
+            ⚡ RFC 9449 SENDER-CONSTRAINED TOKENS &nbsp;✦&nbsp; HARDWARE NON-EXTRACTABLE ECDSA P-256 KEYS &nbsp;✦&nbsp; REPLAY ATTACK DEFENSE &nbsp;✦&nbsp; CRYPTOGRAPHIC BINDING CNF.JKT &nbsp;✦&nbsp; ZERO BEARER EXPLOITATION &nbsp;✦&nbsp; NEXT.JS APP ROUTER ENGINE &nbsp;✦&nbsp; 
+          </div>
+        </div>
+
         <main>{children}</main>
+
         <footer style={{
           marginTop: '80px',
-          borderTop: '1px solid var(--border-subtle)',
+          borderTop: '3px solid #000000',
           padding: '40px 0',
-          backgroundColor: 'rgba(7, 9, 14, 0.95)',
-          color: 'var(--text-muted)',
-          fontSize: '0.85rem'
+          backgroundColor: '#ffffff',
+          color: '#000000',
+          fontSize: '0.9rem',
+          boxShadow: '0 -4px 0px rgba(0, 0, 0, 0.04)'
         }}>
           <div className="container flex flex-col md:flex-row items-center justify-between gap-4" style={{ textAlign: 'center' }}>
-            <div>
-              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>RFC 9449 DPoP Engine</span> · Built for Next.js App Router
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+              <span className="badge badge-amber" style={{ fontSize: '0.75rem' }}>RFC 9449</span>
+              <span style={{ fontWeight: 800 }}>DPoP Engine for Next.js App Router</span>
+              <span style={{ color: 'var(--text-muted)' }}>· Hardware-bound Proofs</span>
             </div>
-            <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-              <a href="https://datatracker.ietf.org/doc/html/rfc9449" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)' }}>
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+              <a
+                href="https://datatracker.ietf.org/doc/html/rfc9449"
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-outline"
+                style={{ padding: '6px 12px', fontSize: '0.8rem', textDecoration: 'none' }}
+              >
                 IETF RFC 9449 Spec ↗
               </a>
-              <a href="https://datatracker.ietf.org/doc/html/rfc7638" target="_blank" rel="noreferrer" style={{ color: 'var(--text-secondary)' }}>
-                RFC 7638 (JWK Thumbprints) ↗
+              <a
+                href="https://datatracker.ietf.org/doc/html/rfc7638"
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-outline"
+                style={{ padding: '6px 12px', fontSize: '0.8rem', textDecoration: 'none' }}
+              >
+                RFC 7638 Thumbprints ↗
               </a>
             </div>
           </div>
